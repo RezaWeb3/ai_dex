@@ -59,7 +59,7 @@ describe ("Testing Exchange SC...", ()=>{
                     expect(await token1.allowance(user1.address, exchange.address)).to.equal(tokens('1000'))
                 })
 
-                it("Despoti event emitted", async ()=>{
+                it("Deposit event emitted", async ()=>{
 
                     tx = await exchange.connect(user1).deposit(token1.address, tokens('1000'));
                     
@@ -67,6 +67,7 @@ describe ("Testing Exchange SC...", ()=>{
                     expect(result._token).to.equal(token1.address);
                     expect(result._sender).to.equal(user1.address)
                     expect(result._amount).to.equal(tokens('1000'))
+                    
                 })
 
                 it("Checking balances...", async()=>{
@@ -88,7 +89,38 @@ describe ("Testing Exchange SC...", ()=>{
        })  
 
        describe ("Withdrawals...", ()=>{
+            let approve_amount_1 = tokens('2000')
+            let tx;
+            beforeEach(async()=>{
+                await token1.connect(user1).approve(exchange.address, approve_amount_1);  
+                await exchange.connect(user1).deposit(token1.address, approve_amount_1); 
+            })
+            describe("Success...", ()=>{
+                it("Use withdraws from exchange...", async()=>{
+                    expect(await exchange.balanceOf(token1.address, user1.address)).to.equal(approve_amount_1);
+                    expect(await token1.balanceOf(user1.address)).to.equal(tokens('1000'))
+                    await exchange.connect(user1).withdraw(token1.address, approve_amount_1)
+                    expect(await token1.balanceOf(user1.address)).to.equal(tokens('3000'))
+                    expect(await exchange.balanceOf(token1.address, user1.address)).to.equal(tokens('0'));     
+                })
 
+                it("Emitting Withdrawal Event...", async()=>{
+                    tx = await exchange.connect(user1).withdraw(token1.address, approve_amount_1)
+                    let result = (await tx.wait()).events[1].args
+                    expect(result._token).to.equal(token1.address)
+                    expect(result._amount).to.equal(approve_amount_1)
+                    expect(result._sender).to.equal(user1.address)  
+                    expect(result._balance).to.equal(tokens('0'))             
+                })
+
+            })
+
+            describe ("Failure...", ()=>{
+                it("Use withdraws from exchange...", async()=>{
+                    expect(exchange.connect(user1).withdraw(token1.address, tokens('10000'))).to.be.reverted;
+                })    
+            })
+            
        })
        
     })
