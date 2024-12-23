@@ -26,24 +26,30 @@ describe ("Testing Exchange SC...", ()=>{
             exchangeFeeRecipient = accounts[5]
             feepercent = 10;
             token1 = await Token.deploy("Reza Token", "REZ", tokens('1000000'))
-            exchange = await Exchange.deploy(exchangeFeeRecipient.address, feepercent)
-            await token1.connect(deployer).transfer(user1.address, tokens('3000'))
-       
+            token2 = await Token.deploy("God Token", "GOD", tokens('10000'))
+            exchange = await Exchange.deploy(exchangeAccount.address, feepercent)
+            let tx = await token1.connect(deployer).transfer(user1.address, tokens('3000'))
+            tx.wait()
+            tx = await token2.connect(deployer).transfer(user2.address, tokens('30'))
+            tx.wait()
         })
 
        it("Fee Reipient match...", async ()=>{
-            expect(await exchange.feeRecipient()).to.equal(exchangeFeeRecipient.address);
+            expect(await exchange.feeRecipient()).to.equal(exchangeAccount.address);
        })
 
        it("Fee Percentage match...", async ()=>{
         expect(await exchange.feePercent()).to.equal(feepercent); 
-   })
+       })
 
        describe ("Deposits...", ()=>{
             let approve_amount_1 = tokens('2000')
+            let approve_amount_2 = tokens('20')
             let tx;
             beforeEach(async()=>{
                 await token1.connect(user1).approve(exchange.address, approve_amount_1);   
+                await token2.connect(user2).approve(exchange.address, approve_amount_2);   
+   
             })
             
             describe("Success...", ()=>
@@ -88,7 +94,7 @@ describe ("Testing Exchange SC...", ()=>{
             })
        })  
 
-       describe ("Withdrawals...", ()=>{
+        describe ("Withdrawals...", ()=>{
             let approve_amount_1 = tokens('2000')
             let tx;
             beforeEach(async()=>{
@@ -119,6 +125,111 @@ describe ("Testing Exchange SC...", ()=>{
                 it("Use withdraws from exchange...", async()=>{
                     expect(exchange.connect(user1).withdraw(token1.address, tokens('10000'))).to.be.reverted;
                 })    
+            })
+            
+       })
+
+       describe ("Making orders...", ()=>{
+        beforeEach(async()=>{
+            let tx1 = await token1.connect(user1).approve(exchange.address, tokens('2000'));
+            tx1.wait()
+            let tx2 = await exchange.connect(user1).deposit(token1.address, tokens('1000'))
+            tx2.wait()
+            
+            tx1 = await token2.connect(user2).approve(exchange.address, tokens('20'));
+            tx1.wait()
+            tx3 = await exchange.connect(user2).deposit(token2.address, tokens('20'))
+            tx3.wait()
+            
+        })
+
+        describe("Success...", ()=>{
+            it("Placing order....", async()=>{
+                
+                let tx3 = await exchange.connect(user1).makeOrder(token1.address, tokens('1000'), token2.address, tokens('10'));
+                tx3.wait();
+                expect((await exchange.Orders(0)).tokenSell).to.equal(token1.address)
+                expect((await exchange.Orders(0)).tokenBuy).to.equal(token2.address)
+                expect((await exchange.Orders(0)).tokenSellAmount).to.equal(tokens('1000'))
+                expect((await exchange.Orders(0)).tokenBuyAmount).to.equal(tokens('10'))
+                expect((await exchange.Orders(0)).user).to.equal(user1.address)
+                
+                
+                let tx4 = await exchange.connect(user2).makeOrder(token2.address, tokens('10'), token1.address, tokens('5000'));
+                tx4.wait();
+                expect((await exchange.Orders(1)).tokenSell).to.equal(token2.address)
+                expect((await exchange.Orders(1)).tokenBuy).to.equal(token1.address)
+                expect((await exchange.Orders(1)).tokenSellAmount).to.equal(tokens('10'))
+                expect((await exchange.Orders(1)).tokenBuyAmount).to.equal(tokens('5000'))
+                expect((await exchange.Orders(1)).user).to.equal(user2.address)
+            })
+        })
+
+        describe("Failure...", ()=>{
+             it("Placing order....", async()=>{
+                expect(exchange.connect(user1).makeOrder(token1.address, tokens('4000'), token2.address, tokens('10'))).to.be.reverted
+                
+            }) 
+        })
+
+       })
+
+       describe("Cancelling / making orders...", ()=>{
+
+            beforeEach(async()=>{
+                // create orders
+                let tx = await token1.connect(user1).approve(exchange.address, tokens('2000'))
+                tx.wait()
+                tx = await token2.connect(user2).approve(exchange.address, tokens('50'))
+                tx.wait()
+                tx = await exchange.connect(user1).deposit(token1.address, tokens('1500') )
+                tx.wait()
+                tx = await exchange.connect(user2).deposit(token2.address, tokens('30'))
+                tx.wait()
+                tx = await exchange.connect(user1).makeOrder(token1.address, tokens('1000'), token2.address, tokens('10'));
+                tx.wait()
+                tx = await exchange.connect(user2).makeOrder(token2.address, tokens('10'), token1.address, tokens('2000'));
+                tx.wait()
+                
+            })
+            describe ("Cancelling orders...", ()=>{
+            
+                describe("Success...", async()=>{
+                    it("canceled...", async ()=>{
+                        let tx =  await exchange.connect(user1).cancelOrder(0)
+                        tx.wait();
+                        expect(await exchange.cancelledOrders(0)).to.equal(true)
+                    })
+
+                    it("not canceled...", async ()=>{
+                        let tx =  await exchange.connect(user1).cancelOrder(0)
+                        tx.wait();
+                        expect(await exchange.cancelledOrders(1)).to.not.equal(true)
+                    })
+
+                    
+                })
+
+                describe("Failure...", async()=>{
+                    it("Not owner cancelling...", async()=>{
+                        expect(exchange.connect(user2).cancelOrder(0)).to.be.reverted
+                    })
+
+                    it("event emitted...", async ()=>{
+                        expect(exchange.connect(user1).cancelOrder(7)).to.be.reverted
+                    })
+                })
+            })
+
+            describe ("Filling orders...", ()=>{
+            
+                describe("Success...", async()=>{
+                   
+                })
+
+                describe("Success...", async()=>{
+                    
+                })
             })
             
        })
