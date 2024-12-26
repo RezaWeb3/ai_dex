@@ -27,7 +27,7 @@ describe ("Testing Exchange SC...", ()=>{
             feepercent = 10;
             token1 = await Token.deploy("Reza Token", "REZ", tokens('1000000'))
             token2 = await Token.deploy("God Token", "GOD", tokens('10000'))
-            exchange = await Exchange.deploy(exchangeAccount.address, feepercent)
+            exchange = await Exchange.deploy(exchangeFeeRecipient.address, feepercent)
             let tx = await token1.connect(deployer).transfer(user1.address, tokens('3000'))
             tx.wait()
             tx = await token2.connect(deployer).transfer(user2.address, tokens('30'))
@@ -35,7 +35,7 @@ describe ("Testing Exchange SC...", ()=>{
         })
 
        it("Fee Reipient match...", async ()=>{
-            expect(await exchange.feeRecipient()).to.equal(exchangeAccount.address);
+            expect(await exchange.feeRecipient()).to.equal(exchangeFeeRecipient.address);
        })
 
        it("Fee Percentage match...", async ()=>{
@@ -89,7 +89,7 @@ describe ("Testing Exchange SC...", ()=>{
 
             describe ("Failure....", ()=>{
                 it("user1 deposit to the exchange more than allowance...", async ()=>{
-                    expect( exchange.connect(user1).deposit(token1.address, tokens('3000'))).to.be.reverted;
+                    await expect( exchange.connect(user1).deposit(token1.address, tokens('3000'))).to.be.reverted;
                 })
             })
        })  
@@ -123,7 +123,7 @@ describe ("Testing Exchange SC...", ()=>{
 
             describe ("Failure...", ()=>{
                 it("Use withdraws from exchange...", async()=>{
-                    expect(exchange.connect(user1).withdraw(token1.address, tokens('10000'))).to.be.reverted;
+                    await expect(exchange.connect(user1).withdraw(token1.address, tokens('10000'))).to.be.reverted;
                 })    
             })
             
@@ -167,7 +167,7 @@ describe ("Testing Exchange SC...", ()=>{
 
         describe("Failure...", ()=>{
              it("Placing order....", async()=>{
-                expect(exchange.connect(user1).makeOrder(token1.address, tokens('4000'), token2.address, tokens('10'))).to.be.reverted
+                await expect(exchange.connect(user1).makeOrder(token1.address, tokens('4000'), token2.address, tokens('10'))).to.be.reverted
                 
             }) 
         })
@@ -188,8 +188,8 @@ describe ("Testing Exchange SC...", ()=>{
                 tx.wait()
                 tx = await exchange.connect(user1).makeOrder(token1.address, tokens('1000'), token2.address, tokens('10'));
                 tx.wait()
-                tx = await exchange.connect(user2).makeOrder(token2.address, tokens('10'), token1.address, tokens('2000'));
-                tx.wait()
+               // tx = await exchange.connect(user2).makeOrder(token2.address, tokens('10'), token1.address, tokens('2000'));
+               // tx.wait()
                 
             })
             describe ("Cancelling orders...", ()=>{
@@ -212,11 +212,11 @@ describe ("Testing Exchange SC...", ()=>{
 
                 describe("Failure...", async()=>{
                     it("Not owner cancelling...", async()=>{
-                        expect(exchange.connect(user2).cancelOrder(0)).to.be.reverted
+                        await expect( exchange.connect(user2).cancelOrder(0)).to.be.reverted
                     })
 
                     it("event emitted...", async ()=>{
-                        expect(exchange.connect(user1).cancelOrder(7)).to.be.reverted
+                        await expect(exchange.connect(user1).cancelOrder(7)).to.be.reverted
                     })
                 })
             })
@@ -224,10 +224,72 @@ describe ("Testing Exchange SC...", ()=>{
             describe ("Filling orders...", ()=>{
             
                 describe("Success...", async()=>{
-                   
+                    it("change in balances", async()=>{
+                        let balance_token1_user1_before = await exchange.balanceOf(token1.address, user1.address) 
+                        let balance_token1_user2_before = await exchange.balanceOf(token1.address, user2.address) 
+                        let balance_token2_user1_before = await exchange.balanceOf(token2.address, user1.address) 
+                        let balance_token2_user2_before = await exchange.balanceOf(token2.address, user2.address) 
+                        let balance_token1_exchange_before = await exchange.balanceOf(token1.address, await exchange.feeRecipient()) 
+                        let balance_token2_exchange_before = await exchange.balanceOf(token2.address, await exchange.feeRecipient()) 
+                       
+                        let order = await exchange.Orders(0);
+                        
+                        let tx = await exchange.connect(user2).fillOrder(0);
+                        tx.wait();
+                        let balance_token1_user1_after = await exchange.balanceOf(token1.address, user1.address) 
+                        let balance_token1_user2_after = await exchange.balanceOf(token1.address, user2.address) 
+                        let balance_token2_user1_after = await exchange.balanceOf(token2.address, user1.address) 
+                        let balance_token2_user2_after = await exchange.balanceOf(token2.address, user2.address) 
+                        let balance_token2_exchange_after = await exchange.balanceOf(token2.address, await exchange.feeRecipient()) 
+                        let balance_token1_exchange_after = await exchange.balanceOf(token1.address, await exchange.feeRecipient()) 
+                  
+                        expect(balance_token1_user1_after).to.equal(balance_token1_user1_before.sub(order.tokenSellAmount));
+                        expect(balance_token1_user2_after).to.equal(balance_token1_user2_before.add(order.tokenSellAmount));
+                        expect(balance_token1_exchange_after).to.equal(balance_token1_exchange_before);
+                        expect(balance_token2_user1_after).to.equal(balance_token2_user1_before.add(order.tokenBuyAmount));
+                        expect(balance_token2_exchange_after).to.greaterThan(balance_token2_exchange_before);      
+                    });   
+
                 })
 
-                describe("Success...", async()=>{
+                describe("Failure...", async()=>{
+                    it("Order not exists", async()=>{
+                       await  expect(exchange.connect(user2).fillOrder(3)).to.be.reverted
+                    })
+
+
+                    it("Order is cancelled", async()=>{
+                        let tx = await exchange.connect(user1).cancelOrder(0)
+                        tx.wait()
+                        await expect(exchange.connect(user2).fillOrder(0)).to.be.reverted
+                    })
+
+                    it("Not sufficient funds", async()=>{
+                        let tx = await exchange.connect(user2).withdraw(token2.address, tokens('20'))
+                        tx.wait()
+                        await expect(exchange.connect(user2).fillOrder(0)).to.be.reverted
+                    })
+
+                    it("Not sufficient counter party funds", async()=>{
+                        let tx = await exchange.connect(user1).withdraw(token1.address, tokens('1000'))
+                        tx.wait()
+                        await expect( exchange.connect(user2).fillOrder(0)).to.be.reverted
+                    })
+
+                    it("Order already filled....", async()=>{
+                        let tx = await exchange.connect(user2).fillOrder(0);
+                        tx.wait()
+                        await expect(exchange.connect(user2).fillOrder(0)).to.be.reverted;
+                    })
+
+                    it("Filling your own order....", async()=>{
+                        await expect(exchange.connect(user1).fillOrder(0)).to.be.reverted;
+                    })
+
+                    it("Invalid order....", async()=>{
+                        await expect(exchange.connect(user1).fillOrder(10)).to.be.reverted;
+                    })
+                    
                     
                 })
             })

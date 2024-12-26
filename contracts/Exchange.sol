@@ -8,6 +8,8 @@ contract Exchange{
     mapping (address => mapping (address=>uint256)) public balanceOf;
     mapping (uint256 => _Order) public Orders;
     mapping(uint256=>bool) public cancelledOrders;
+    mapping(uint256=>bool) public filledOrders;
+
     uint256 public orderCount;
     struct _Order{
         address tokenSell;
@@ -22,6 +24,15 @@ contract Exchange{
     event Deposit(address indexed  _token, address indexed _sender, uint256 _amount);
     event Withdraw(address indexed _token, address indexed _sender, uint256 _amount, uint256 _balance);
     event Order(_Order order);
+    event Fill( 
+        address tokenSell,
+        address tokenBuy,
+        uint256 tokenSellAmount,
+        uint256 tokenBuyAmount,
+        address user,
+        uint256 id,
+        uint256 timestamp);
+
     event Cancel(
          address tokenSell,
         address tokenBuy,
@@ -96,5 +107,66 @@ contract Exchange{
         );
 
         return true;
+    }
+
+    function fillOrder(uint256 _id) public returns(bool){
+
+        // not to be cancelled
+        // not ur own order
+        // the same tokens 
+        // balance to pay fees
+        
+        
+        _Order storage _order = Orders[_id];
+        //deposit(order.tokenBuy, order.tokenBuyAmount);
+        _trade(_order.id, _order.tokenSell, _order.tokenSellAmount, _order.tokenBuy, _order.tokenBuyAmount,  _order.user);
+        
+        filledOrders[_order.id] = true;
+        emit Fill(
+            _order.tokenSell,
+            _order.tokenBuy,
+            _order.tokenSellAmount,
+            _order.tokenBuyAmount,
+            _order.user,
+            _order.id,
+            _order.timestamp
+        );
+
+        return true;
+
+    }
+
+    function _trade(
+        uint256 id,
+        address tokenBuy,
+        uint256 tokenBuyAmount,
+        address tokenSell,
+        uint256 tokenSellAmount,
+        address counter_party) internal returns(bool){
+
+        require(Orders[id].user != address(0), "Invaid order");
+        require(cancelledOrders[id]==false, "Order is cancelled");
+        require(filledOrders[id]==false, "Order is already filled.");
+        require(tokenSellAmount > 0, "Invalid amount");
+        require(tokenBuyAmount > 0, "Invalid amount");
+        require(balanceOf[tokenSell][msg.sender] >=  (tokenSellAmount + (tokenSellAmount * feePercent / 100)), "Not enough balance [you]");
+        require(balanceOf[tokenBuy][counter_party] >= tokenBuyAmount, "Not enough balance [counter-party]");
+        require(counter_party != msg.sender, "Cannot fill your own order");
+
+        //msg.sender is the buyer
+
+        balanceOf[tokenBuy][msg.sender] += tokenBuyAmount;
+        balanceOf[tokenSell][msg.sender] -= tokenSellAmount + (tokenSellAmount * feePercent / 100);
+        
+        balanceOf[tokenSell][counter_party] += tokenSellAmount;
+        balanceOf[tokenBuy][counter_party] -= tokenBuyAmount;
+
+        // fee
+        balanceOf[tokenSell][feeRecipient] += (tokenSellAmount * feePercent / 100);
+
+        
+
+        return true;
+
     }
 }
