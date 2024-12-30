@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
-import config from "./config.json"
-import {loadProvider, getNetwork, getChainid, loadAccount, loadToken} from "./store/interactions"
-import './App.css';
+import config from "../config.json"
+import {loadProvider, getNetwork, getChainid, loadAccount, loadToken} from "../store/interactions"
+import './../App.css';
 import {useDispatch} from 'react-redux'
 
  const App =  ()=> {
