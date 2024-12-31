@@ -11,7 +11,8 @@ export const loadProvider = (dispatch)=> {
 }
 
 //get the entire network
-export const getNetwork = async (connection, dispatch) =>{
+export const loadNetwork = async (connection, dispatch) =>{
+    connection = loadProvider(dispatch)
     const network = await connection.getNetwork();
     dispatch({type: 'NETWORK_LOADED', network})
 
