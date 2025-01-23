@@ -1,7 +1,7 @@
 import logo from "./../assets/dapp.svg"
 import {useSelector, useDispatch} from "react-redux";
 import {loadWalletBalance, loadBalances, transferTokens, subscribeToEvents} from "./../store/interactions"
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {formatLargeNumber} from './helper'
 
 const Balance = () => {
@@ -16,10 +16,12 @@ const Balance = () => {
     let transactionInProgress = useSelector(state=>state.exchange.transactionInProgress)
     const [token0TransferAmount, setToken0TransferAmount] = useState(0)
     const [token1TransferAmount, setToken1TransferAmount] = useState(0)
+    const [isDeposit, setToDeposit] = useState(true)
+    const depositButtonRef = useRef(null)
+    const withdrawalButtonRef = useRef(null)
     
     
     const resetDepositAmounts = ()=>{
-        console.log("RESETTING TRANSFER AMOUNTS")
         setToken1TransferAmount(0)
         setToken0TransferAmount(0)
     }
@@ -67,6 +69,24 @@ const Balance = () => {
 
         resetDepositAmounts()
     }
+
+    // Switching the pill buttons using references
+    const tabHandler = (e)=>{
+        if(e.target.className !== depositButtonRef.current.className)
+        {
+            const activeClassname = depositButtonRef.current.className;
+            depositButtonRef.current.className = withdrawalButtonRef.current.className;
+            withdrawalButtonRef.current.className = activeClassname;
+            setToDeposit(false)
+        }
+        else
+        {
+            setToDeposit(true)
+            const activeClassname = withdrawalButtonRef.current.className;
+            withdrawalButtonRef.current.className = depositButtonRef.current.className;
+            depositButtonRef.current.className = activeClassname;
+        }
+    }
     
     // Run it initially and if there are any changes in the values below.
     // Basically, if the redux state changes and this should be updated.
@@ -83,8 +103,8 @@ const Balance = () => {
         <div className='component__header flex-between'>
             <h2>Balance</h2>
             <div className='tabs'>
-            <button className='tab tab--active'>Deposit</button>
-            <button className='tab'>Withdraw</button>
+            <button onClick={tabHandler} ref={depositButtonRef} className='tab tab--active'>Deposit</button>
+            <button onClick={tabHandler} ref={withdrawalButtonRef} className='tab'>Withdraw</button>
             </div>
         </div>
 
@@ -102,7 +122,7 @@ const Balance = () => {
                 <input type="text" id='token0' placeholder='0.0000' onChange={(e)=>amountTransferHandler(e, tokens.contracts[0])} />
 
                 <button className='button' type='submit'>
-                    <span>Deposit</span>
+                    <span>{isDeposit? "Deposit": "Withdraw"}</span>
                 </button>
             </form>
         </div>)}
@@ -117,10 +137,10 @@ const Balance = () => {
             </div>
             <form onSubmit={(e)=>{depositHandler(e, tokens.contracts[1])}}>
             <label htmlFor="token1"></label>
-            <input type="text" id='token1' value={token1TransferAmount > 0 ? token1TransferAmount : "0.000"} onChange={(e)=>amountTransferHandler(e, tokens.contracts[1])}/>
+            <input type="text" id='token1' value={token1TransferAmount > 0 ? token1TransferAmount : ""} onChange={(e)=>amountTransferHandler(e, tokens.contracts[1])}/>
 
             <button className='button' type='submit'> 
-                <span>Deposit</span>
+                <span>{isDeposit?"Deposit":"Withdraw" }</span>
             </button>
             </form>
         </div>
