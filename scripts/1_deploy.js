@@ -34,15 +34,15 @@ async function deployContracts() {
   console.log("Accounts:", accountAddresses);
 
   // deploy the contract
-  const mDai = await Token.deploy("mDAI", "mDAI", tokens('10000000'));
+  const mDai = await Token.deploy("mDAI", "mDAI", tokens('10000'));
   await mDai.deployed()
   console.log(`The mDai address is : ${mDai.address}`)
 
-  const mEth = await Token.deploy("mEth", "mEth", tokens('10000000'));
+  const mEth = await Token.deploy("mEth", "mEth", tokens('10000'));
   await mEth.deployed()
   console.log(`The mEth address is : ${mEth.address}`)
 
-  const mSol = await Token.deploy("mSol", "mSol", tokens('10000000'));
+  const mSol = await Token.deploy("mSol", "mSol", tokens('10000'));
   await mSol.deployed()
   console.log(`The mSol address is : ${mSol.address}`)
 

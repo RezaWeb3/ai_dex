@@ -8,12 +8,14 @@ import config from "../config.json"
 import { useEffect } from 'react';
  
 const Navbar = () => {
+    // We read the values from the redux states
     let account = useSelector(state => state.accounts.accounts)
     let balance = useSelector(state => state.accounts.balance)
     let connection = useSelector(state => state.provider.connection)
     let chainId = useSelector(state=> state.provider.chainId)
     const dispatch = useDispatch()
 
+    // Whenever we connect to a wallet, we will load the entire values
     const walletConnectHandler = async()=>{
         const accounts = await loadAccount(connection, dispatch)
     }
@@ -21,21 +23,16 @@ const Navbar = () => {
     // Handles swiching chains
     // first change it on metamask and then load the network to update the state
     const networkChangeHandler = async (event)=>{     
+        // Send the event of switching chains to the wallet
         await window.ethereum.request({
             method: 'wallet_switchEthereumChain',
             params: [ {chainId: event.target.value} ]
           }); 
 
+        // Load the values based on the new network
         let network = await loadNetwork(connection, dispatch) 
         chainId = network.chainId
-        console.log(`0x${chainId.toString(16)}`)
     }
-
-    
-
-   
-
-    
 
     return(
       <div className='exchange__header grid'>
